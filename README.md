@@ -33,12 +33,32 @@ OTA Pulse is a modern Android application designed to simplify the process of do
 
 ## 📸 Screenshots
 
-<p align="center">
-  <img src="OTAPulse/Screenshot/homescreen-page.jpg" width="200" alt="Home Screen" />
-  <img src="OTAPulse/Screenshot/devicelist-page.jpg" width="200" alt="Device List" />
-  <img src="OTAPulse/Screenshot/about-page.jpg" width="200" alt="About" />
-  <img src="OTAPulse/Screenshot/settings-page.jpg" width="200" alt="Settings" />
-</p>
+<sub>Tap image to view full screenshots • Swipe left/right on mobile →</sub>
+
+<table>
+  <tr>
+    <td>
+      <a href="OTAPulse/Screenshot/homescreen-page.jpg">
+        <img src="OTAPulse/Screenshot/homescreen-page.jpg" width="200">
+      </a>
+    </td>
+    <td>
+      <a href="OTAPulse/Screenshot/devicelist-page.jpg">
+        <img src="OTAPulse/Screenshot/devicelist-page.jpg" width="200">
+      </a>
+    </td>
+    <td>
+      <a href="OTAPulse/Screenshot/about-page.jpg">
+        <img src="OTAPulse/Screenshot/about-page.jpg" width="200">
+      </a>
+    </td>
+    <td>
+      <a href="OTAPulse/Screenshot/settings-page.jpg">
+        <img src="OTAPulse/Screenshot/settings-page.jpg" width="200">
+      </a>
+    </td>
+  </tr>
+</table>
 
 ---
 
