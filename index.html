@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTA Pulse - Android OTA Manager</title>
+    <meta name="description" content="OTA Pulse is a modern Android application designed to simplify the process of downloading and managing Over-the-Air (OTA) updates.">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e', // Green for Android/Success
+                            600: '#16a34a',
+                            900: '#14532d',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    },
+                    screens: {
+                        'xs': '480px',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Orb Animation */
+        @keyframes float {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.2); }
+            66% { transform: translate(-20px, 20px) scale(0.8); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob {
+            animation: float 10s infinite ease-in-out;
+        }
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+
+        /* Scroll Reveal Animation Classes */
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+        }
+        
+        .reveal-on-scroll.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 3D Carousel Perspective */
+        .carousel-perspective {
+            perspective: 1000px;
+        }
+        .carousel-item {
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: center center;
+        }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-300 font-sans antialiased selection:bg-brand-500 selection:text-white relative">
+
+    <!-- Floating Background Orbs -->
+    <div class="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <!-- Orb 1: Deep Indigo (Top Left) -->
+        <div class="absolute top-0 -left-4 w-[500px] h-[500px] bg-indigo-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-blob"></div>
+        
+        <!-- Orb 2: Purple (Top Right/Center) -->
+        <div class="absolute top-0 -right-4 w-[400px] h-[400px] bg-purple-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-blob animation-delay-2000"></div>
+        
+        <!-- Orb 3: Emerald (Bottom) -->
+        <div class="absolute -bottom-8 left-20 w-[600px] h-[600px] bg-emerald-600 rounded-full mix-blend-screen filter blur-[100px] opacity-10 animate-blob animation-delay-4000"></div>
+    </div>
+
+    <!-- Image Modal (Lightbox) -->
+    <div id="image-modal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4 opacity-0 transition-opacity duration-300" onclick="closeModal()">
+        <div class="relative max-w-sm md:max-w-md lg:max-w-lg w-full flex flex-col items-center" onclick="event.stopPropagation()">
+            <button class="absolute -top-12 right-0 md:-right-12 text-white/70 hover:text-white hover:scale-110 transition-all p-2" onclick="closeModal()">
+                <i data-lucide="x" class="w-8 h-8"></i>
+            </button>
+            <div class="relative w-full rounded-2xl overflow-hidden shadow-2xl border-2 border-brand-500/30 bg-dark-900">
+                 <img id="modal-image" src="" alt="Full View" class="w-full h-auto object-contain transform transition-transform duration-300 scale-95">
+            </div>
+            <p id="modal-caption" class="mt-6 text-white font-bold text-xl tracking-wide"></p>
+            <p class="text-brand-500 text-sm mt-1">Screenshot Preview</p>
+        </div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 top-0 start-0 border-b border-white/10 bg-dark-900/80 backdrop-blur-md">
+        <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
+            <a href="#" class="flex items-center space-x-3 rtl:space-x-reverse group">
+                <!-- Placeholder for logo if image fails -->
+                <div class="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center text-white font-bold text-xl group-hover:scale-110 transition-transform">
+                    O
+                </div>
+                <span class="self-center text-2xl font-bold whitespace-nowrap text-white">OTA Pulse</span>
+            </a>
+            
+            <!-- Mobile Menu Button -->
+            <button data-collapse-toggle="navbar-default" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-slate-400 rounded-lg md:hidden hover:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-brand-500" aria-controls="navbar-default" aria-expanded="false" id="menu-btn">
+                <span class="sr-only">Open main menu</span>
+                <i data-lucide="menu"></i>
+            </button>
+
+            <div class="hidden w-full md:block md:w-auto" id="navbar-default">
+                <ul class="font-medium flex flex-col p-4 md:p-0 mt-4 border border-dark-700 rounded-lg md:flex-row md:space-x-8 rtl:space-x-reverse md:mt-0 md:border-0">
+                    <li><a href="#features" class="block py-2 px-3 text-white rounded hover:text-brand-500 md:p-0 transition-colors">Features</a></li>
+                    <li><a href="#screenshots" class="block py-2 px-3 text-white rounded hover:text-brand-500 md:p-0 transition-colors">Screenshots</a></li>
+                    <li><a href="#community" class="block py-2 px-3 text-white rounded hover:text-brand-500 md:p-0 transition-colors">Community</a></li>
+                    <li>
+                        <a href="https://github.com/CodeSenseiX/OTAPulse/releases" target="_blank" class="block py-2 px-3 text-brand-500 hover:text-brand-400 font-bold md:p-0 flex items-center gap-1">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative pt-32 pb-20 overflow-hidden z-10">
+        <!-- Background Glow (Removed old static blobs, keeping container for spacing if needed, but empty) -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-4xl opacity-20 pointer-events-none"></div>
+
+        <div class="py-8 px-4 mx-auto max-w-screen-xl text-center lg:py-16 lg:px-12 relative z-10">
+            <div class="flex justify-center mb-8">
+                <!-- Logo Image from Repo Structure -->
+                <img src="OTAPulse/logo/logo.webp" alt="OTA Pulse Logo" class="w-32 h-32 md:w-40 md:h-40 object-contain drop-shadow-2xl animate-fade-in-up" onerror="this.style.display='none'; document.getElementById('hero-logo-fallback').style.display='flex'">
+                <div id="hero-logo-fallback" class="hidden w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-brand-600 to-dark-800 items-center justify-center text-6xl font-bold text-white shadow-2xl border border-white/10">
+                    OP
+                </div>
+            </div>
+            
+            <a href="https://github.com/CodeSenseiX/OTAPulse/releases" class="inline-flex justify-between items-center py-1 px-1 pr-4 mb-7 text-sm rounded-full bg-dark-800 text-white hover:bg-dark-700 border border-brand-500/30 transition-colors">
+                <span class="text-xs bg-brand-600 rounded-full text-white px-4 py-1.5 mr-3">New</span> <span class="text-sm font-medium">Android 16 Support Available</span> 
+                <i data-lucide="chevron-right" class="w-4 h-4 ml-2"></i>
+            </a>
+            
+            <h1 class="mb-4 text-4xl font-extrabold tracking-tight leading-none md:text-5xl lg:text-6xl text-white">
+                Master Your Device's <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-blue-500">Updates</span>
+            </h1>
+            
+            <p class="mb-8 text-lg font-normal lg:text-xl sm:px-16 xl:px-48 text-slate-400">
+                OTA Pulse is a modern Android application designed to simplify downloading and managing Over-the-Air updates for OnePlus, Realme, and OPPO devices.
+            </p>
+            
+            <div class="flex flex-col mb-8 lg:mb-16 space-y-4 sm:flex-row sm:justify-center sm:space-y-0 sm:space-x-4">
+                <a href="https://github.com/CodeSenseiX/OTAPulse/releases" class="inline-flex justify-center items-center py-3 px-5 text-base font-medium text-center text-white rounded-lg bg-brand-600 hover:bg-brand-700 focus:ring-4 focus:ring-brand-500/30 transition-all transform hover:scale-105">
+                    <i data-lucide="download-cloud" class="w-5 h-5 mr-2"></i>
+                    Download Now
+                </a>
+                <a href="https://github.com/CodeSenseiX/OTAPulse" target="_blank" class="inline-flex justify-center items-center py-3 px-5 text-base font-medium text-center text-white rounded-lg border border-white/20 hover:bg-white/10 focus:ring-4 focus:ring-gray-700 transition-all">
+                    <i data-lucide="github" class="w-5 h-5 mr-2"></i>
+                    View on GitHub
+                </a>
+            </div>
+            
+            <!-- Download Stats Badge -->
+            <div class="flex justify-center">
+                <img src="https://img.shields.io/github/downloads/CodeSenseiX/OTAPulse/total?style=for-the-badge&color=22c55e&logo=github" alt="Total Downloads" class="rounded-lg shadow-lg">
+            </div>
+        </div>
+    </section>
+
+    <!-- Supported Devices Banner -->
+    <div class="w-full bg-dark-800/50 border-y border-white/5 py-8 relative z-10">
+        <div class="max-w-screen-xl mx-auto px-4 text-center">
+            <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Supported Brands</p>
+            <div class="flex justify-center items-center gap-8 md:gap-16 flex-wrap opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
+                <span class="text-2xl font-bold text-white flex items-center gap-2"><i data-lucide="smartphone" class="text-brand-500"></i> OnePlus</span>
+                <span class="text-2xl font-bold text-white flex items-center gap-2"><i data-lucide="smartphone" class="text-yellow-500"></i> Realme</span>
+                <span class="text-2xl font-bold text-white flex items-center gap-2"><i data-lucide="smartphone" class="text-green-500"></i> OPPO</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-dark-900/50 relative z-10">
+        <div class="py-8 px-4 mx-auto max-w-screen-xl sm:py-16 lg:px-6">
+            <div class="max-w-screen-md mb-8 lg:mb-16">
+                <h2 class="mb-4 text-4xl tracking-tight font-extrabold text-white">Packed with Power</h2>
+                <p class="text-slate-400 sm:text-xl">Everything you need to manage your device updates, hardware insights, and background tasks in one modern interface.</p>
+            </div>
+            
+            <div class="space-y-8 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-8 md:space-y-0">
+                
+                <!-- Feature 1 -->
+                <div class="glass-card p-6 rounded-xl hover:-translate-y-1 transition-transform duration-300">
+                    <div class="flex justify-center items-center mb-4 w-10 h-10 rounded-full bg-brand-900/50 text-brand-500 ring-1 ring-brand-500/20">
+                        <i data-lucide="smartphone-charging"></i>
+                    </div>
+                    <h3 class="mb-2 text-xl font-bold text-white">Wide Device Support</h3>
+                    <p class="text-slate-400">Compatible with a growing list of OnePlus, Realme, and OPPO devices, ensuring you stay updated.</p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="glass-card p-6 rounded-xl hover:-translate-y-1 transition-transform duration-300">
+                    <div class="flex justify-center items-center mb-4 w-10 h-10 rounded-full bg-blue-900/50 text-blue-500 ring-1 ring-blue-500/20">
+                        <i data-lucide="sliders"></i>
+                    </div>
+                    <h3 class="mb-2 text-xl font-bold text-white">Custom Profiles</h3>
+                    <p class="text-slate-400">Create your own device profiles to extend functionality to officially unsupported devices.</p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="glass-card p-6 rounded-xl hover:-translate-y-1 transition-transform duration-300">
+                    <div class="flex justify-center items-center mb-4 w-10 h-10 rounded-full bg-purple-900/50 text-purple-500 ring-1 ring-purple-500/20">
+                        <i data-lucide="download"></i>
+                    </div>
+                    <h3 class="mb-2 text-xl font-bold text-white">Download Manager</h3>
+                    <p class="text-slate-400">Full control to pause, resume, cancel, and retry downloads. Also supports manual URL downloads.</p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="glass-card p-6 rounded-xl hover:-translate-y-1 transition-transform duration-300">
+                    <div class="flex justify-center items-center mb-4 w-10 h-10 rounded-full bg-orange-900/50 text-orange-500 ring-1 ring-orange-500/20">
+                        <i data-lucide="cpu"></i>
+                    </div>
+                    <h3 class="mb-2 text-xl font-bold text-white">Device Insights</h3>
+                    <p class="text-slate-400">Detailed breakdown of hardware (SoC, CPU, RAM) and software details (OS, Security Patch).</p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="glass-card p-6 rounded-xl hover:-translate-y-1 transition-transform duration-300">
+                    <div class="flex justify-center items-center mb-4 w-10 h-10 rounded-full bg-pink-900/50 text-pink-500 ring-1 ring-pink-500/20">
+                        <i data-lucide="shield-check"></i>
+                    </div>
+                    <h3 class="mb-2 text-xl font-bold text-white">Secure & Modern</h3>
+                    <p class="text-slate-400">Communication secured via AES/RSA encryption. Built with Jetpack Compose for a modern look.</p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="glass-card p-6 rounded-xl hover:-translate-y-1 transition-transform duration-300">
+                    <div class="flex justify-center items-center mb-4 w-10 h-10 rounded-full bg-teal-900/50 text-teal-500 ring-1 ring-teal-500/20">
+                        <i data-lucide="bell"></i>
+                    </div>
+                    <h3 class="mb-2 text-xl font-bold text-white">Background Tasks</h3>
+                    <p class="text-slate-400">Downloads continue in the background using WorkManager, complete with interactive notifications.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshots Section (Stack Animation) -->
+    <section id="screenshots" class="py-20 bg-dark-800/80 border-t border-white/5 relative z-10 overflow-hidden">
+        <div class="text-center mb-12 max-w-screen-xl mx-auto px-4">
+            <h2 class="text-3xl font-extrabold text-white sm:text-4xl">App Screenshots</h2>
+            <p class="mt-4 text-slate-400">Interactive 3D View - Click or Hover</p>
+        </div>
+
+        <!-- Carousel Container -->
+        <div id="carousel-container" class="relative w-full max-w-4xl h-[550px] sm:h-[600px] mx-auto carousel-perspective group touch-pan-y" onmouseenter="pauseCarousel()" onmouseleave="startCarousel()">
+            <!-- Items will be injected by JS or defined here. Defining structure for JS manipulation. -->
+            
+            <!-- Item 1: Home Screen -->
+            <div class="carousel-item w-64 md:w-72 rounded-2xl border-4 border-dark-700 shadow-2xl overflow-hidden aspect-[9/19] cursor-pointer" data-index="0" onclick="handleItemClick(0)">
+                <img src="OTAPulse/Screenshot/homescreen-page.jpg" alt="Home Screen" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/1080x2400/1e293b/FFF?text=Home+Screen'">
+                <div class="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none"></div>
+            </div>
+
+            <!-- Item 2: Device List -->
+            <div class="carousel-item w-64 md:w-72 rounded-2xl border-4 border-dark-700 shadow-2xl overflow-hidden aspect-[9/19] cursor-pointer" data-index="1" onclick="handleItemClick(1)">
+                <img src="OTAPulse/Screenshot/devicelist-page.jpg" alt="Device List" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/1080x2400/1e293b/FFF?text=Device+List'">
+                <div class="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none"></div>
+            </div>
+
+            <!-- Item 3: Manual Query -->
+            <div class="carousel-item w-64 md:w-72 rounded-2xl border-4 border-dark-700 shadow-2xl overflow-hidden aspect-[9/19] cursor-pointer" data-index="2" onclick="handleItemClick(2)">
+                <img src="OTAPulse/Screenshot/manualquery-page.jpg" alt="Manual Query" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/1080x2400/1e293b/FFF?text=Manual+Query'">
+                <div class="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none"></div>
+            </div>
+
+            <!-- Item 4: About Page -->
+            <div class="carousel-item w-64 md:w-72 rounded-2xl border-4 border-dark-700 shadow-2xl overflow-hidden aspect-[9/19] cursor-pointer" data-index="3" onclick="handleItemClick(3)">
+                <img src="OTAPulse/Screenshot/about-page.jpg" alt="About Page" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/1080x2400/1e293b/FFF?text=About+Page'">
+                <div class="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none"></div>
+            </div>
+
+            <!-- Item 5: Settings Page -->
+            <div class="carousel-item w-64 md:w-72 rounded-2xl border-4 border-dark-700 shadow-2xl overflow-hidden aspect-[9/19] cursor-pointer" data-index="4" onclick="handleItemClick(4)">
+                <img src="OTAPulse/Screenshot/settings-page.jpg" alt="Settings Page" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/1080x2400/1e293b/FFF?text=Settings+Page'">
+                <div class="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none"></div>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons (Numbers 1-5) -->
+        <div class="flex justify-center items-center gap-4 mt-8 z-20 relative">
+            <button onclick="goToSlide(0)" class="nav-dot w-10 h-10 rounded-full bg-dark-700 border border-white/10 text-white hover:bg-brand-500 hover:text-white transition-all font-bold shadow-lg flex items-center justify-center group relative hover:scale-110" data-index="0">
+                1
+                <span class="absolute -top-10 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Home Screen</span>
+            </button>
+            
+            <button onclick="goToSlide(1)" class="nav-dot w-10 h-10 rounded-full bg-dark-700 border border-white/10 text-white hover:bg-brand-500 hover:text-white transition-all font-bold shadow-lg flex items-center justify-center group relative hover:scale-110" data-index="1">
+                2
+                <span class="absolute -top-10 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Device List</span>
+            </button>
+
+            <button onclick="goToSlide(2)" class="nav-dot w-10 h-10 rounded-full bg-dark-700 border border-white/10 text-white hover:bg-brand-500 hover:text-white transition-all font-bold shadow-lg flex items-center justify-center group relative hover:scale-110" data-index="2">
+                3
+                <span class="absolute -top-10 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Manual Query</span>
+            </button>
+
+            <button onclick="goToSlide(3)" class="nav-dot w-10 h-10 rounded-full bg-dark-700 border border-white/10 text-white hover:bg-brand-500 hover:text-white transition-all font-bold shadow-lg flex items-center justify-center group relative hover:scale-110" data-index="3">
+                4
+                <span class="absolute -top-10 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">About Page</span>
+            </button>
+
+            <button onclick="goToSlide(4)" class="nav-dot w-10 h-10 rounded-full bg-dark-700 border border-white/10 text-white hover:bg-brand-500 hover:text-white transition-all font-bold shadow-lg flex items-center justify-center group relative hover:scale-110" data-index="4">
+                5
+                <span class="absolute -top-10 bg-black/80 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Settings Page</span>
+            </button>
+        </div>
+        <p class="text-center text-slate-500 text-sm mt-4">Tip: Click side images or numbers to rotate</p>
+    </section>
+
+    <!-- Requirements & Info -->
+    <section class="py-20 bg-dark-900/50 relative z-10">
+        <div class="max-w-screen-xl mx-auto px-4 md:grid md:grid-cols-2 gap-12 items-center">
+            <div>
+                <h2 class="text-3xl font-bold text-white mb-6">System Requirements</h2>
+                <div class="space-y-4">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-brand-500"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-medium text-white">Android Version</h3>
+                            <p class="text-slate-400">Android 10 (API Level 29) or higher.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i data-lucide="wifi" class="w-6 h-6 text-brand-500"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-medium text-white">Internet Connection</h3>
+                            <p class="text-slate-400">Required for fetching updates and device details.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i data-lucide="hard-drive" class="w-6 h-6 text-brand-500"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-medium text-white">Storage</h3>
+                            <p class="text-slate-400">Sufficient storage for downloading ROM files.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="community" class="mt-10 md:mt-0 glass-card p-8 rounded-2xl border border-brand-500/20">
+                <h2 class="text-2xl font-bold text-white mb-6">Join the Community</h2>
+                <p class="text-slate-400 mb-6">Get support, request devices, or chat with other users on our Telegram channels.</p>
+                <div class="space-y-3">
+                    <a href="https://t.me/abhinav_v1" target="_blank" class="flex items-center p-4 bg-dark-800 rounded-lg hover:bg-brand-600 transition-colors group">
+                        <i data-lucide="send" class="w-6 h-6 text-brand-500 group-hover:text-white"></i>
+                        <span class="ml-3 text-white font-medium">OTAPulse Channel</span>
+                        <i data-lucide="external-link" class="ml-auto w-4 h-4 opacity-50"></i>
+                    </a>
+                    <a href="https://t.me/abhinav_vchat" target="_blank" class="flex items-center p-4 bg-dark-800 rounded-lg hover:bg-brand-600 transition-colors group">
+                        <i data-lucide="message-circle" class="w-6 h-6 text-brand-500 group-hover:text-white"></i>
+                        <span class="ml-3 text-white font-medium">OTAPulse Discussion</span>
+                        <i data-lucide="external-link" class="ml-auto w-4 h-4 opacity-50"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark-900 border-t border-white/10 py-12 relative z-10">
+        <div class="max-w-screen-xl mx-auto px-4 text-center">
+            <div class="flex justify-center items-center space-x-6 mb-8">
+                <a href="https://github.com/CodeSenseiX/OTAPulse" class="text-slate-400 hover:text-white">
+                    <span class="sr-only">GitHub</span>
+                    <i data-lucide="github" class="w-6 h-6"></i>
+                </a>
+            </div>
+            <p class="text-slate-500 text-sm mb-2">
+                &copy; <script>document.write(new Date().getFullYear())</script> OTA Pulse.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Mobile Menu Toggle
+        const menuBtn = document.getElementById('menu-btn');
+        const menu = document.getElementById('navbar-default');
+
+        menuBtn.addEventListener('click', () => {
+            menu.classList.toggle('hidden');
+        });
+
+        document.querySelectorAll('#navbar-default a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (!menu.classList.contains('hidden')) {
+                    menu.classList.add('hidden');
+                }
+            });
+        });
+
+        // Scroll Reveal Animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: "0px 0px -50px 0px"
+        };
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+        document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
+
+        // Modal Logic
+        const modal = document.getElementById('image-modal');
+        const modalImg = document.getElementById('modal-image');
+        const modalCaption = document.getElementById('modal-caption');
+
+        function openModal(src, alt) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalImg.classList.remove('scale-95');
+                modalImg.classList.add('scale-100');
+            }, 10);
+            modalImg.src = src;
+            modalCaption.textContent = alt;
+            document.body.style.overflow = 'hidden';
+            pauseCarousel(); // Stop rotation when viewing
+        }
+
+        function closeModal() {
+            modal.classList.add('opacity-0');
+            modalImg.classList.remove('scale-100');
+            modalImg.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modalImg.src = '';
+            }, 300);
+            document.body.style.overflow = 'auto';
+            startCarousel(); // Resume rotation
+        }
+        document.addEventListener('keydown', (e) => { if (e.key === "Escape") closeModal(); });
+
+        /* -------------------------------------------------------------------------- */
+        /* 3D Carousel Logic                                 */
+        /* -------------------------------------------------------------------------- */
+        
+        const items = document.querySelectorAll('.carousel-item');
+        const dots = document.querySelectorAll('.nav-dot');
+        let activeIndex = 0;
+        let intervalId;
+        const itemCount = items.length;
+
+        function updateCarousel() {
+            items.forEach((item, index) => {
+                // Determine relative position
+                let offset = (index - activeIndex);
+                
+                // Handle wrapping for infinite feel in logic (though strict display uses 5 items)
+                // Normalize offset to find shortest path if needed, but for simple stack:
+                if (offset > 2) offset -= itemCount;
+                if (offset < -2) offset += itemCount;
+
+                // Reset basic styles
+                item.style.zIndex = '0';
+                item.style.opacity = '0';
+                item.style.transform = 'translate(-50%, -50%) scale(0.7)'; // Default hidden state
+                item.style.filter = 'blur(5px)';
+
+                if (offset === 0) {
+                    // CENTER (Active)
+                    item.style.zIndex = '30';
+                    item.style.opacity = '1';
+                    item.style.transform = 'translate(-50%, -50%) scale(1)';
+                    item.style.filter = 'blur(0px)';
+                    item.classList.add('border-brand-500');
+                } else if (offset === 1 || offset === -4) {
+                    // RIGHT
+                    item.style.zIndex = '20';
+                    item.style.opacity = '0.6';
+                    item.style.transform = 'translate(10%, -50%) scale(0.85)'; // 10% from center X + -50% centering = moves right
+                    item.style.filter = 'blur(1px)';
+                    item.classList.remove('border-brand-500');
+                } else if (offset === -1 || offset === 4) {
+                    // LEFT
+                    item.style.zIndex = '20';
+                    item.style.opacity = '0.6';
+                    item.style.transform = 'translate(-110%, -50%) scale(0.85)';
+                    item.style.filter = 'blur(1px)';
+                    item.classList.remove('border-brand-500');
+                } else {
+                    // Hidden/Back
+                    item.classList.remove('border-brand-500');
+                }
+            });
+
+            // Update dots
+            dots.forEach(dot => {
+                dot.classList.remove('bg-brand-500', 'scale-110');
+                dot.classList.add('bg-dark-700');
+                if (parseInt(dot.dataset.index) === activeIndex) {
+                    dot.classList.remove('bg-dark-700');
+                    dot.classList.add('bg-brand-500', 'scale-110');
+                }
+            });
+        }
+
+        function handleItemClick(clickedIndex) {
+            if (clickedIndex === activeIndex) {
+                // If active, open modal
+                const img = items[clickedIndex].querySelector('img');
+                const alt = img.getAttribute('alt');
+                openModal(img.src, alt);
+            } else {
+                // If not active, rotate to it
+                activeIndex = clickedIndex;
+                updateCarousel();
+                resetInterval();
+            }
+        }
+
+        function goToSlide(index) {
+            activeIndex = index;
+            updateCarousel();
+            resetInterval();
+        }
+
+        function nextSlide() {
+            activeIndex = (activeIndex + 1) % itemCount;
+            updateCarousel();
+        }
+
+        function startCarousel() {
+            if (intervalId) clearInterval(intervalId);
+            intervalId = setInterval(nextSlide, 3000);
+        }
+
+        function pauseCarousel() {
+            if (intervalId) clearInterval(intervalId);
+        }
+
+        function resetInterval() {
+            pauseCarousel();
+            startCarousel();
+        }
+
+        // Initialize
+        updateCarousel();
+        startCarousel();
+
+    </script>
+</body>
+</html>
