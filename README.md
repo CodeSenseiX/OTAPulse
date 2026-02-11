@@ -1,26 +1,16 @@
----
-
 # 🚀 Repository Moved
 
-## OTA Pulse has officially moved to a new location.
+> ⚠️ This repository is no longer maintained.
 
-👉 **New Repository:**
-[https://github.com/RemuruSama/OTA-Pulse](https://github.com/RemuruSama/OTA-Pulse)
+## New Official Repository
 
----
+👉 https://github.com/RemuruSama/OTA-Pulse
 
-### ⚠️ Important
+All future updates, releases, and fixes are available in the new repository.
 
-This repository is no longer maintained.
-All future updates, releases, and bug fixes will be available in the new repository.
-
-Please:
-
-* ⭐ Star the new repo
-* 🔄 Update your forks
-* 🔖 Update your bookmarks
-
----
+Please update your:
+- ⭐ Stars
+- 🔄 Forks
+- 🔖 Bookmarks
 
 Thank you for your support ❤️
-See you at the new home!
